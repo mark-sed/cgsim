@@ -1,3 +1,6 @@
+import csv
+from sys import argv
+
 MM_TO_INCH = 1 / 25.4
 DPI = 300
 
@@ -10,9 +13,36 @@ A4_HEIGHT = int(297 * MM_TO_INCH * DPI)   # ~3508 px
 from PIL import Image, ImageDraw, ImageFont
 import textwrap
 
+def suit2symbol(suit):
+    if suit == "Srdce":
+        return ("♥", "red")
+    elif suit == "Káry":
+        return ("♦", "red")
+    elif suit == "Piky":
+        return ("♠", "black")
+    elif suit == "Kříže":
+        return ("♣", "black")
+    assert False, "Missing suit " + suit
+
+def get_race_color(race):
+    if race == "Flora":
+        return "green"
+    elif race == "Fauna":
+        return (255, 100, 100)
+    elif race == "Stroje":
+        return (80, 80, 80)
+    elif race == "Lidé":
+        return (245, 188, 66)
+    elif race == "Jiné":
+        return (66, 121, 143)
+
+    return "black"
+
 def create_card(name, race, team, team_effect, value, rarity, suit, text):
     img = Image.new("RGB", (CARD_WIDTH, CARD_HEIGHT), "white")
     draw = ImageDraw.Draw(img)
+
+    suit, suit_color = suit2symbol(suit)
 
     # Load fonts (use a .ttf file you have)
     font_title = ImageFont.truetype("DejaVuSans-Bold.ttf", 48)
@@ -29,14 +59,14 @@ def create_card(name, race, team, team_effect, value, rarity, suit, text):
     draw.text((CARD_WIDTH//2, 20), name, font=font_title, fill="black", anchor="ma")
 
     # Value and suit (top right)
-    draw.text((CARD_WIDTH - 100, 20), suit, font=font_suit, fill="black")
-    draw.text((CARD_WIDTH - 100 + (+5 if value < 10 else -5), 20 + 72), str(value), font=font_value, fill="black")
+    draw.text((CARD_WIDTH - 100, 20), suit, font=font_suit, fill=suit_color)
+    draw.text((CARD_WIDTH - 100 + (+5 if value < 10 else -5), 20 + 72), str(value), font=font_value, fill=suit_color)
 
     # Text box for race and rarity
     race_text_box = (20, CARD_HEIGHT // 2 - 60, CARD_WIDTH - 20, CARD_HEIGHT // 2 - 5)
     draw.rectangle(race_text_box, outline="black")
     # Race
-    draw.text((30, CARD_HEIGHT // 2 - 50), race, font=race_font, fill="green")
+    draw.text((30, CARD_HEIGHT // 2 - 50), race, font=race_font, fill=get_race_color(race))
     # Rarity
     draw.text((CARD_WIDTH - 100, CARD_HEIGHT // 2 - (50 if len(rarity) < 4 else 100)), str(rarity), font=race_font, fill="blue")
 
@@ -46,7 +76,7 @@ def create_card(name, race, team, team_effect, value, rarity, suit, text):
     team_text_box = (20, team_y, CARD_WIDTH - 20, effect_y-5)
     draw.rectangle(team_text_box, outline="black")
     # Team
-    draw.text((CARD_WIDTH // 2, team_y), str(team), font=race_font, fill="gray", anchor="ma")
+    draw.text((CARD_WIDTH // 2, team_y), str(team), font=race_font, fill="black", anchor="ma")
     team_lines = textwrap.wrap(team_effect, width=32)
     y = team_y + 40
     for line in team_lines:
@@ -73,8 +103,8 @@ def create_a4_sheet(cards):
     cols = 3
     rows = 3
 
-    margin_x = (A4_WIDTH - cols * CARD_WIDTH) // (cols + 1)
-    margin_y = (A4_HEIGHT - rows * CARD_HEIGHT) // (rows + 1)
+    margin_x = 2#(A4_WIDTH - cols * CARD_WIDTH) // (cols + 1)
+    margin_y = 2#(A4_HEIGHT - rows * CARD_HEIGHT) // (rows + 1)
 
     i = 0
     for r in range(rows):
@@ -82,28 +112,39 @@ def create_a4_sheet(cards):
             if i >= len(cards):
                 break
 
-            x = margin_x + c * (CARD_WIDTH + margin_x)
-            y = margin_y + r * (CARD_HEIGHT + margin_y)
+            x = 100 + margin_x + c * (CARD_WIDTH + margin_x)
+            y = 100 + margin_y + r * (CARD_HEIGHT + margin_y)
 
             sheet.paste(cards[i], (x, y))
             i += 1
 
     return sheet
 
-cards = []
+card_data = []
 
-for i in range(8):
+with open(argv[1], "r", encoding="utf-8") as f:
+    reader = csv.DictReader(f)
+    for row in reader:
+        card_data.append(row)
+
+card_imgs = []
+
+sheet_num = 1
+for i, c in enumerate(card_data, 1):
     card = create_card(
-        name=f"Hvězdná Fregata ",
-        race="Flora",
-        team="Cacti",
-        team_effect="Karta Cacti je bez efektu pokud je vedle jiné Cacti, Tým: +10 za každý kaktus",
-        value=i+7,
-        rarity="R:3",
-        suit="♣",
-        text="+2 za každý Stroj vedlé této karty; Bez efektu pokud není vedle karty Octopus."
+        name=c["Jméno"],
+        race=c["Rasa"],
+        team=c["Tým"],
+        team_effect=c["Efekt týmu"],
+        value=int(c["Hodnota"]),
+        rarity=c["Rarita"],
+        suit=c["Barva"],
+        text=c["Efekt"]
     )
-    cards.append(card)
+    card_imgs.append(card)
 
-sheet = create_a4_sheet(cards)
-sheet.save("cards_a4.png", dpi=(300, 300))
+    if i % 9 == 0 or i == len(card_data):
+        sheet = create_a4_sheet(card_imgs)
+        sheet.save(f"output/cards_a4_{sheet_num}.png", dpi=(300, 300))
+        sheet_num += 1
+        card_imgs.clear()
