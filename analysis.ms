@@ -21,7 +21,7 @@ fun read_csv(path:String, ... int_indicies) {
 }
 
 fun plot_hist(x, title:String) {
-    ~plt.hist(x)
+    ~plt.hist(x, max(x)+1)
     ~plt.xlabel("Value")
     ~plt.ylabel("Frequency")
     ~plt.title(title)

@@ -97,6 +97,85 @@ def create_card(name, race, team, team_effect, value, rarity, suit, text):
 
     return img
 
+def create_item_card(name, item_type, effect):
+    img = Image.new("RGB", (CARD_WIDTH, CARD_HEIGHT), "white")
+    draw = ImageDraw.Draw(img)
+
+    # Fonts
+    font_type = ImageFont.truetype("DejaVuSans-Bold.ttf", 48)
+    font_title = ImageFont.truetype("DejaVuSans-Bold.ttf", 64)
+    font_effect = ImageFont.truetype("DejaVuSans.ttf", 40)
+
+    # Colors by type
+    type_colors = {
+        "artefakt": "#eba834",
+        "item": "#1ad2db",
+        "aréna": "#9e0b12"
+    }
+
+    item_type_lower = item_type.lower()
+    type_color = type_colors.get(item_type_lower, "black")
+
+    # Outer border
+    draw.rectangle(
+        [0, 0, CARD_WIDTH - 1, CARD_HEIGHT - 1],
+        outline="black",
+        width=6
+    )
+
+    # Type text at top
+    draw.text(
+        (CARD_WIDTH // 2, 30),
+        item_type if item_type != "Item" else "Věc",
+        font=font_type,
+        fill=type_color,
+        anchor="ma"
+    )
+
+    # Name in middle
+    draw.text(
+        (CARD_WIDTH // 2, CARD_HEIGHT // 2),
+        name,
+        font=font_title,
+        fill="black",
+        anchor="mm"
+    )
+
+    # Bottom effect box
+    effect_box_margin = 30
+    effect_box_height = 320
+
+    effect_box = (
+        effect_box_margin,
+        CARD_HEIGHT - effect_box_height - effect_box_margin,
+        CARD_WIDTH - effect_box_margin,
+        CARD_HEIGHT - effect_box_margin
+    )
+
+    draw.rectangle(effect_box, outline=type_color, width=4)
+
+    # Wrap effect text
+    lines = textwrap.wrap(effect, width=30)
+
+    # Center lines vertically inside box
+    line_height = 45
+    total_text_height = len(lines) * line_height
+
+    y = effect_box[1] + (
+        (effect_box_height - total_text_height) // 2
+    )
+
+    for line in lines:
+        draw.text(
+            (effect_box[0] + 20, y),
+            line,
+            font=font_effect,
+            fill="black"
+        )
+        y += line_height
+
+    return img
+
 def create_a4_sheet(cards):
     sheet = Image.new("RGB", (A4_WIDTH, A4_HEIGHT), "white")
 
@@ -121,11 +200,23 @@ def create_a4_sheet(cards):
     return sheet
 
 card_data = []
+item_data = []
+arena_data = []
 
 with open(argv[1], "r", encoding="utf-8") as f:
     reader = csv.DictReader(f)
     for row in reader:
         card_data.append(row)
+
+with open(argv[2], "r", encoding="utf-8") as f:
+    reader = csv.DictReader(f)
+    for row in reader:
+        item_data.append(row)
+
+with open(argv[3], "r", encoding="utf-8") as f:
+    reader = csv.DictReader(f)
+    for row in reader:
+        arena_data.append(row)
 
 card_imgs = []
 
@@ -146,5 +237,39 @@ for i, c in enumerate(card_data, 1):
     if i % 9 == 0 or i == len(card_data):
         sheet = create_a4_sheet(card_imgs)
         sheet.save(f"output/cards_a4_{sheet_num}.png", dpi=(300, 300))
+        sheet_num += 1
+        card_imgs.clear()
+
+card_imgs.clear()
+
+sheet_num = 1
+for i, c in enumerate(item_data, 1):
+    card = create_item_card(
+        name=c["Jméno"],
+        item_type=c["Typ"],
+        effect=c["Efekt"]
+    )
+    card_imgs.append(card)
+
+    if i % 9 == 0 or i == len(item_data):
+        sheet = create_a4_sheet(card_imgs)
+        sheet.save(f"output/items_a4_{sheet_num}.png", dpi=(300, 300))
+        sheet_num += 1
+        card_imgs.clear()
+
+card_imgs.clear()
+
+sheet_num = 1
+for i, c in enumerate(arena_data, 1):
+    card = create_item_card(
+        name=c["Jméno"],
+        item_type="Aréna",
+        effect=c["Efekt"]
+    )
+    card_imgs.append(card)
+
+    if i % 9 == 0 or i == len(arena_data):
+        sheet = create_a4_sheet(card_imgs)
+        sheet.save(f"output/arenas_a4_{sheet_num}.png", dpi=(300, 300))
         sheet_num += 1
         card_imgs.clear()
